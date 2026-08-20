@@ -1,99 +1,285 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# SOC Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Incident-response API for a Security Operations Centre: incidents, the alerts
+and evidence attached to them, the assets they affect, and the investigations
+and findings that come out of them — with a correlation engine, a risk score,
+and an audit trail over the whole thing.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Built with [NestJS](https://nestjs.com) 11, [Prisma](https://prisma.io) 7 and
+PostgreSQL 17.
 
-## Description
+## Quick start
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+The whole stack (frontend, backend, database) runs from the repository root:
 
 ```bash
-$ npm install
+cp .env.example .env && docker compose up --build
 ```
 
-## Compile and run the project
+The backend listens on `http://localhost:4000`, the frontend on
+`http://localhost:3000`. Migrations are applied automatically on startup.
+
+To run only the backend and its database:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+docker compose up --build postgres backend
 ```
 
-## Run tests
+### Running outside Docker
+
+Requires Node 22+ and a reachable PostgreSQL instance.
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cd soc-backend
+cp .env.example .env
+npm ci
+npx prisma migrate deploy
+npm run start:dev
 ```
 
-## Deployment
+## Environment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+`soc-backend/.env` configures the app itself; the root `.env` supplies secrets
+to `docker compose`. Both have a committed `.env.example`.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+| Variable         | Required | Default                 | Notes                                                 |
+| ---------------- | -------- | ----------------------- | ----------------------------------------------------- |
+| `DATABASE_URL`   | yes      | —                       | Host is `localhost` locally, `postgres` under compose |
+| `JWT_SECRET`     | yes      | —                       | No fallback: the app refuses to start without it      |
+| `JWT_EXPIRES_IN` | no       | `1h`                    | Any `ms`-style duration                               |
+| `PORT`           | no       | `4000`                  |                                                       |
+| `CORS_ORIGIN`    | no       | `http://localhost:3000` | Allowed browser origin                                |
+
+Generate a signing key:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Authentication
 
-## Resources
+Every route requires a bearer token unless explicitly marked public. Only
+`GET /`, `GET /health`, `GET /health/ready` and `POST /auth/login` are open.
 
-Check out a few resources that may come in handy when working with NestJS:
+### First run
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+The system starts with no accounts. **The first account registered becomes an
+`ADMIN`**, which bootstraps the instance:
 
-## Support
+```bash
+curl -X POST http://localhost:4000/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@soc.local","username":"admin","password":"a-long-password"}'
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Once any account exists, registration requires an `ADMIN` caller — anonymous
+requests are rejected with `403`. Accounts created afterwards default to
+`VIEWER` unless the ADMIN specifies a `role`.
 
-## Stay in touch
+### Logging in
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+curl -X POST http://localhost:4000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"identifier":"admin","password":"a-long-password"}'
+```
 
-## License
+`identifier` accepts either the username or the email address. The response
+carries `accessToken`; send it as `Authorization: Bearer <token>`.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-# soc-backend
+### Roles
+
+Roles are ranked, so a higher role satisfies any lower requirement.
+
+| Role      | May                                                                             |
+| --------- | ------------------------------------------------------------------------------- |
+| `VIEWER`  | Read everything                                                                 |
+| `ANALYST` | Everything above, plus create and update                                        |
+| `ADMIN`   | Everything above, plus delete, manage accounts, and write audit entries by hand |
+
+Passwords are hashed with `scrypt` from the Node standard library. Tuning
+parameters are stored in each hash record, so they can be raised later without
+invalidating existing passwords.
+
+## API
+
+All list endpoints accept `skip` and `take` (default 25, max 100) and return:
+
+```json
+{ "data": [], "meta": { "total": 0, "skip": 0, "take": 25 } }
+```
+
+### Auth
+
+| Method | Path             | Role                                       |
+| ------ | ---------------- | ------------------------------------------ |
+| `POST` | `/auth/register` | ADMIN (or anonymous for the first account) |
+| `POST` | `/auth/login`    | public                                     |
+| `GET`  | `/auth/me`       | any                                        |
+
+### Health
+
+| Method | Path            | Notes                                                                           |
+| ------ | --------------- | ------------------------------------------------------------------------------- |
+| `GET`  | `/health`       | Liveness. Does not touch the database, so an outage cannot cause a restart loop |
+| `GET`  | `/health/ready` | Readiness. Checks the database; returns `503` when it is unreachable            |
+
+### Incidents
+
+| Method   | Path             | Role    | Notes                                            |
+| -------- | ---------------- | ------- | ------------------------------------------------ |
+| `POST`   | `/incidents`     | ANALYST |                                                  |
+| `GET`    | `/incidents`     | any     | Filters: `status`, `severity`                    |
+| `GET`    | `/incidents/:id` | any     | Includes alerts, evidence, assets, investigation |
+| `PATCH`  | `/incidents/:id` | ANALYST | Status transitions live here                     |
+| `DELETE` | `/incidents/:id` | ADMIN   | Cascades to evidence, asset links, investigation |
+
+### Alerts
+
+| Method   | Path          | Role    | Notes                                                        |
+| -------- | ------------- | ------- | ------------------------------------------------------------ |
+| `POST`   | `/alerts`     | ANALYST |                                                              |
+| `GET`    | `/alerts`     | any     | Filters: `severity`, `incidentId`, `source`                  |
+| `GET`    | `/alerts/:id` | any     |                                                              |
+| `PATCH`  | `/alerts/:id` | ANALYST | Set `incidentId` to move between incidents, `null` to detach |
+| `DELETE` | `/alerts/:id` | ADMIN   |                                                              |
+
+### Assets
+
+| Method   | Path                                | Role    | Notes                                  |
+| -------- | ----------------------------------- | ------- | -------------------------------------- |
+| `POST`   | `/assets`                           | ANALYST |                                        |
+| `GET`    | `/assets`                           | any     | Filters: `type`, `status`, `ipAddress` |
+| `GET`    | `/assets/:id`                       | any     |                                        |
+| `PATCH`  | `/assets/:id`                       | ANALYST |                                        |
+| `DELETE` | `/assets/:id`                       | ADMIN   |                                        |
+| `POST`   | `/assets/:id/incidents/:incidentId` | ANALYST | Attach; idempotent                     |
+| `DELETE` | `/assets/:id/incidents/:incidentId` | ANALYST | Detach                                 |
+
+### Evidence
+
+| Method   | Path            | Role    | Notes                            |
+| -------- | --------------- | ------- | -------------------------------- |
+| `POST`   | `/evidence`     | ANALYST |                                  |
+| `GET`    | `/evidence`     | any     | Filters: `type`, `incidentId`    |
+| `GET`    | `/evidence/:id` | any     |                                  |
+| `PATCH`  | `/evidence/:id` | ANALYST | The owning incident is immutable |
+| `DELETE` | `/evidence/:id` | ADMIN   |                                  |
+
+### Investigations
+
+One investigation per incident; creating a second returns the existing one.
+
+| Method  | Path                               | Role    | Notes                                       |
+| ------- | ---------------------------------- | ------- | ------------------------------------------- |
+| `POST`  | `/investigations`                  | ANALYST |                                             |
+| `GET`   | `/investigations`                  | any     | Filters: `status`, `assignedTo`             |
+| `GET`   | `/investigations/:id`              | any     |                                             |
+| `PATCH` | `/investigations/:id`              | ANALYST | `status`, `assignedTo`, `conclusion`        |
+| `GET`   | `/investigations/:id/timeline`     | any     | Merged case history                         |
+| `GET`   | `/investigations/:id/events`       | any     | Typed events with metadata                  |
+| `GET`   | `/investigations/:id/summary`      | any     | Everything about the case in one response   |
+| `GET`   | `/investigations/:id/risk`         | any     | Score, level, contributing factors          |
+| `GET`   | `/investigations/:id/correlations` | any     |                                             |
+| `GET`   | `/investigations/:id/explanation`  | any     | Plain-language rationale for the risk level |
+
+`completedAt` is derived, never set by the client: reaching `RESOLVED` or
+`CLOSED` stamps it, and reopening clears it.
+
+### Findings
+
+| Method   | Path                                            | Role    |
+| -------- | ----------------------------------------------- | ------- |
+| `POST`   | `/investigations/:investigationId/findings`     | ANALYST |
+| `GET`    | `/investigations/:investigationId/findings`     | any     |
+| `GET`    | `/investigations/:investigationId/findings/:id` | any     |
+| `PATCH`  | `/investigations/:investigationId/findings/:id` | ANALYST |
+| `DELETE` | `/investigations/:investigationId/findings/:id` | ADMIN   |
+
+### Correlations
+
+| Method | Path                              | Role |
+| ------ | --------------------------------- | ---- |
+| `GET`  | `/correlations/investigation/:id` | any  |
+
+### Audit
+
+| Method | Path                              | Role  | Notes                                             |
+| ------ | --------------------------------- | ----- | ------------------------------------------------- |
+| `GET`  | `/audit`                          | any   | Filters: `entity`, `action`, `entityId`, `userId` |
+| `GET`  | `/audit/entity/:entity/:entityId` | any   | Full trail for one record                         |
+| `POST` | `/audit`                          | ADMIN | Manual entry, for backfills                       |
+
+## How it fits together
+
+### Audit trail
+
+Every write is recorded, and the audit entry is written **inside the same
+transaction** as the change it describes — an entry cannot be committed
+without its change, or the reverse.
+
+Attribution is ambient rather than threaded through every call. Middleware
+opens an `AsyncLocalStorage` store with the caller's IP and user agent, the
+JWT guard adds the actor once the token is verified, and `AuditService` reads
+it. No service signature mentions the current user.
+
+Audit rows carry no foreign key, so the trail for a deleted incident outlives
+the incident.
+
+### Correlation and risk
+
+Both run over one loaded snapshot of an investigation
+(`InvestigationContextService`), and the rule evaluation and scoring are pure
+functions over that snapshot — so they are unit tested without a database.
+
+Correlation rules:
+
+1. **Alert to asset** — alert target IP matches an asset IP.
+2. **Alert to evidence** — an alert IP appears in an evidence value. An exact
+   match scores `HIGH`, a substring match `MEDIUM`.
+3. **Evidence to asset** — evidence contains an asset IP.
+4. **Finding to investigation** — carries the finding's own stated confidence.
+
+Risk is additive and capped at 100: alert severity (5–35 each), an external
+source IP (15), an affected asset (20), supporting evidence (15), more than
+one alert (10), a high-confidence finding (15). Bands: `LOW` below 30,
+`MEDIUM` 30–59, `HIGH` 60–79, `CRITICAL` 80+.
+
+### Timeline vs events
+
+`/timeline` is a flat merged history — incident, alerts, evidence, and
+audit entries in one ordered list. `/events` is the typed view, with per-event
+metadata, for a client that wants to render each kind differently.
+
+## Development
+
+```bash
+npm run start:dev      # watch mode
+npm test               # unit tests
+npm run test:cov       # coverage
+npm run lint           # eslint, autofix
+npm run format         # prettier, write
+npm run format:check   # prettier, verify
+```
+
+### Database
+
+```bash
+npx prisma migrate dev --name <change>   # create and apply a migration
+npx prisma migrate deploy                # apply pending migrations
+npx prisma studio                        # browse data
+```
+
+### Tests
+
+Unit specs mock every injected dependency, which means they cannot catch a
+provider that is used but never exported from — or imported into — its module.
+[`src/app.module.spec.ts`](src/app.module.spec.ts) closes that gap: it compiles
+the real module graph with only `PrismaService` stubbed, so wiring mistakes
+fail in the test run rather than at container boot.
+
+### Build output
+
+TypeScript roots the build at the project directory, not `src`, because
+`prisma.config.ts` and the generated client sit outside it. The entry point is
+therefore `dist/src/main.js` — which is what `start:prod` runs.
