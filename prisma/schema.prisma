@@ -108,6 +108,8 @@ model Finding {
 
   investigationId String
   investigation   Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  @@index([investigationId])
 }
 
 model Incident {
@@ -124,6 +126,10 @@ model Incident {
   evidence      Evidence[]
   assets        IncidentAsset[]
   investigation Investigation?
+
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
 }
 
 model Alert {
@@ -140,6 +146,10 @@ model Alert {
 
   incidentId String?
   incident   Incident? @relation(fields: [incidentId], references: [id])
+
+  @@index([incidentId])
+  @@index([severity])
+  @@index([createdAt])
 }
 
 model Evidence {
@@ -152,6 +162,9 @@ model Evidence {
 
   incidentId String
   incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@index([type])
 }
 
 model Asset {
@@ -177,6 +190,7 @@ model IncidentAsset {
   asset    Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@id([incidentId, assetId])
+  @@index([assetId])
 }
 
 model AuditLog {

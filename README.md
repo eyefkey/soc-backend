@@ -101,6 +101,22 @@ Passwords are hashed with `scrypt` from the Node standard library. Tuning
 parameters are stored in each hash record, so they can be raised later without
 invalidating existing passwords.
 
+Because the role is re-read from the database on every request rather than
+trusted from the token, a role change or deactivation applies immediately.
+The cost is one primary-key lookup per request, which stands in for the
+token revocation the service does not yet have.
+
+### Rate limiting
+
+Ordinary traffic is capped at 120 requests a minute. The credential
+endpoints are much tighter — 5 a minute for `/auth/login` and
+`/auth/change-password`, 10 for `/auth/register` — and the limiter runs
+before authentication, so a flood is refused before it costs a password
+hash. Health probes are exempt.
+
+Counters are held in memory, so limits are **per instance**: running more
+than one replica needs a shared store.
+
 ## API
 
 All list endpoints accept `skip` and `take` (default 25, max 100) and return:
@@ -111,11 +127,19 @@ All list endpoints accept `skip` and `take` (default 25, max 100) and return:
 
 ### Auth
 
-| Method | Path             | Role                                       |
-| ------ | ---------------- | ------------------------------------------ |
-| `POST` | `/auth/register` | ADMIN (or anonymous for the first account) |
-| `POST` | `/auth/login`    | public                                     |
-| `GET`  | `/auth/me`       | any                                        |
+| Method  | Path                    | Role                                       |
+| ------- | ----------------------- | ------------------------------------------ |
+| `POST`  | `/auth/register`        | ADMIN (or anonymous for the first account) |
+| `POST`  | `/auth/login`           | public                                     |
+| `GET`   | `/auth/me`              | any                                        |
+| `POST`  | `/auth/change-password` | any (own account)                          |
+| `GET`   | `/auth/users`           | ADMIN                                      |
+| `PATCH` | `/auth/users/:id`       | ADMIN                                      |
+
+An ADMIN can change another account's `role` or set `isActive: false` to
+disable it. Both take effect on the next request rather than at token
+expiry, and an ADMIN cannot demote or disable their own account — that would
+be a one-click lockout.
 
 ### Health
 
@@ -277,6 +301,12 @@ provider that is used but never exported from — or imported into — its modul
 [`src/app.module.spec.ts`](src/app.module.spec.ts) closes that gap: it compiles
 the real module graph with only `PrismaService` stubbed, so wiring mistakes
 fail in the test run rather than at container boot.
+
+End-to-end specs (`npm run test:e2e`) run the real stack — guards, pipes,
+Prisma, PostgreSQL — against a dedicated `soc_e2e` database that is created
+and migrated automatically, so a run never touches development data. They
+need PostgreSQL up (`docker compose up -d postgres`) and run serially,
+since they share one database and the rate limiter counts per process.
 
 ### Build output
 

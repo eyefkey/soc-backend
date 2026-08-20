@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -17,6 +19,10 @@ import { AuditService } from '../audit/audit.service';
 import { PasswordService } from './password.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { QueryUsersDto } from './dto/query-users.dto';
+import { paginated } from '../common/interfaces/paginated.interface';
 import {
   AuthenticatedUser,
   JwtPayload,
@@ -160,6 +166,141 @@ export class AuthService {
     }
 
     return this.toPublicUser(user);
+  }
+
+  async listUsers(query: QueryUsersDto) {
+    const { skip = 0, take = 25, role, isActive } = query;
+
+    const where = {
+      ...(role ? { role } : {}),
+      ...(isActive === undefined ? {} : { isActive }),
+    };
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return paginated(
+      users.map((user) => this.toPublicUser(user)),
+      total,
+      skip,
+      take,
+    );
+  }
+
+  async updateUser(id: string, dto: UpdateUserDto, actor: AuthenticatedUser) {
+    const target = await this.prisma.user.findUnique({
+      where: {
+        id,
+      },
+    });
+
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+
+    /*
+     * Guards against an administrator locking themselves out; another
+     * ADMIN can still demote or disable them.
+     */
+    if (target.id === actor.id) {
+      if (dto.isActive === false) {
+        throw new BadRequestException('You cannot deactivate your own account');
+      }
+
+      if (dto.role && dto.role !== UserRole.ADMIN) {
+        throw new BadRequestException('You cannot remove your own ADMIN role');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: {
+          id,
+        },
+        data: dto,
+      });
+
+      const roleChanged = dto.role !== undefined && dto.role !== target.role;
+      const activationChanged =
+        dto.isActive !== undefined && dto.isActive !== target.isActive;
+
+      await this.audit.create(
+        {
+          action: activationChanged
+            ? AuditAction.STATUS_CHANGED
+            : AuditAction.UPDATED,
+          entity: AuditEntity.USER,
+          entityId: user.id,
+          description: activationChanged
+            ? `User ${user.isActive ? 'reactivated' : 'deactivated'}: ${user.username}`
+            : `User updated: ${user.username}`,
+          metadata: {
+            ...(roleChanged
+              ? { fromRole: target.role, toRole: user.role }
+              : {}),
+            ...(activationChanged ? { isActive: user.isActive } : {}),
+          },
+        },
+        tx,
+      );
+
+      return this.toPublicUser(user);
+    });
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Account no longer exists');
+    }
+
+    const valid = await this.passwords.verify(
+      dto.currentPassword,
+      user.passwordHash,
+    );
+
+    if (!valid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const passwordHash = await this.passwords.hash(dto.newPassword);
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          passwordHash,
+        },
+      });
+
+      await this.audit.create(
+        {
+          action: AuditAction.UPDATED,
+          entity: AuditEntity.USER,
+          entityId: userId,
+          description: `Password changed: ${user.username}`,
+        },
+        tx,
+      );
+
+      return { status: 'ok' };
+    });
   }
 
   /*

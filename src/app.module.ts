@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -24,6 +25,28 @@ import { CorrelationsModule } from './correlations/correlations.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    /*
+     * A broad ceiling for ordinary traffic. The credential endpoints set a
+     * much tighter limit of their own with @Throttle.
+     *
+     * Counters are held in memory, so the limit is per instance: running
+     * more than one replica needs a shared store.
+     */
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          name: 'default',
+          ttl: 60_000,
+          limit: 120,
+        },
+      ],
+      /*
+       * Evaluated per request, so an end-to-end suite can switch limiting
+       * on for the tests that assert it and leave it off for the rest
+       * rather than burning its allowance on setup logins.
+       */
+      skipIf: () => process.env.THROTTLE_DISABLED === 'true',
+    }),
     PrismaModule,
     RequestContextModule,
     HealthModule,
@@ -41,10 +64,20 @@ import { CorrelationsModule } from './correlations/correlations.module';
   providers: [
     AppService,
     /*
-     * Authentication is on by default for every route; individual handlers
-     * opt out with @Public(). Ordering matters — JwtAuthGuard populates the
-     * user that RolesGuard then checks.
+     * Guards run in registration order.
+     *
+     * Rate limiting comes first so a flood is rejected before it costs a
+     * token verification or a database lookup — which matters most on the
+     * login route, where each attempt runs a deliberately expensive hash.
+     *
+     * Authentication is then on by default for every route; handlers opt
+     * out with @Public(). JwtAuthGuard populates the user that RolesGuard
+     * subsequently checks.
      */
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

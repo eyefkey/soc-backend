@@ -32,4 +32,20 @@ export default tseslint.config(
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
+  {
+    /*
+     * End-to-end specs assert against real HTTP responses, and supertest
+     * types `response.body` as `any` because a response genuinely is
+     * untyped at that boundary. Casting every assertion would add noise
+     * without adding safety, so the unsafe-access family is relaxed here
+     * and nowhere else.
+     */
+    files: ['test/**/*.e2e-spec.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+    },
+  },
 );
