@@ -1,0 +1,223 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  INVESTIGATING
+  CONTAINED
+  RESOLVED
+  CLOSED
+}
+
+enum AssetType {
+  SERVER
+  DATABASE
+  API
+  ENDPOINT
+  NETWORK_DEVICE
+  CLOUD
+  OTHER
+}
+
+enum AssetStatus {
+  ACTIVE
+  INACTIVE
+  COMPROMISED
+  DECOMMISSIONED
+}
+
+enum EvidenceType {
+  IP_ADDRESS
+  DOMAIN
+  URL
+  FILE_HASH
+  LOG
+  SCREENSHOT
+  FILE
+  OTHER
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  DELETED
+  ATTACHED
+  DETACHED
+  VIEWED
+  UPLOADED
+  DOWNLOADED
+  STATUS_CHANGED
+}
+
+enum AuditEntity {
+  INCIDENT
+  ALERT
+  ASSET
+  EVIDENCE
+  USER
+}
+
+enum InvestigationStatus {
+  OPEN
+  INVESTIGATING
+  CONTAINED
+  RESOLVED
+  CLOSED
+}
+
+enum FindingConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Finding {
+  id String @id @default(cuid())
+
+  title       String
+  description String
+
+  confidence FindingConfidence @default(MEDIUM)
+
+  impact         String?
+  recommendation String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  investigationId String
+  investigation   Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+}
+
+model Incident {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  severity    Severity
+  status      IncidentStatus @default(OPEN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  alerts        Alert[]
+  evidence      Evidence[]
+  assets        IncidentAsset[]
+  investigation Investigation?
+}
+
+model Alert {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  severity    Severity
+
+  source   String?
+  sourceIp String?
+  targetIp String?
+
+  createdAt DateTime @default(now())
+
+  incidentId String?
+  incident   Incident? @relation(fields: [incidentId], references: [id])
+}
+
+model Evidence {
+  id          String       @id @default(cuid())
+  type        EvidenceType
+  value       String
+  description String?
+
+  createdAt DateTime @default(now())
+
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+model Asset {
+  id          String      @id @default(cuid())
+  name        String
+  type        AssetType
+  status      AssetStatus @default(ACTIVE)
+  hostname    String?
+  ipAddress   String?
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  incidents IncidentAsset[]
+}
+
+model IncidentAsset {
+  incidentId String
+  assetId    String
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  asset    Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([incidentId, assetId])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  action AuditAction
+  entity AuditEntity
+
+  entityId String?
+
+  userId   String?
+  username String?
+
+  description String?
+
+  ipAddress String?
+  userAgent String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Investigation {
+  id String @id @default(cuid())
+
+  incidentId String   @unique
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  status InvestigationStatus @default(OPEN)
+
+  assignedTo String?
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  conclusion String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  findings  Finding[]
+}
