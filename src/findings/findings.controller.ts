@@ -12,21 +12,20 @@ import { FindingsService } from './findings.service';
 import { CreateFindingDto } from './dto/create-finding.dto';
 import { UpdateFindingDto } from './dto/update-finding.dto';
 
+import { UserRole } from '../../generated/prisma/enums';
+import { MinRole } from '../auth/decorators/min-role.decorator';
+
 @Controller('investigations/:investigationId/findings')
 export class FindingsController {
-  constructor(
-    private readonly findingsService: FindingsService,
-  ) {}
+  constructor(private readonly findingsService: FindingsService) {}
 
+  @MinRole(UserRole.ANALYST)
   @Post()
   create(
     @Param('investigationId') investigationId: string,
     @Body() dto: CreateFindingDto,
   ) {
-    return this.findingsService.create(
-      investigationId,
-      dto,
-    );
+    return this.findingsService.create(investigationId, dto);
   }
 
   @Get()
@@ -34,9 +33,7 @@ export class FindingsController {
     @Param('investigationId')
     investigationId: string,
   ) {
-    return this.findingsService.findByInvestigation(
-      investigationId,
-    );
+    return this.findingsService.findByInvestigation(investigationId);
   }
 
   @Get(':id')
@@ -44,27 +41,22 @@ export class FindingsController {
     return this.findingsService.findOne(id);
   }
 
+  @MinRole(UserRole.ANALYST)
   @Patch(':id')
   update(
-  @Param('investigationId') investigationId: string,
-  @Param('id') findingId: string,
-  @Body() dto: UpdateFindingDto,
-) {
-  return this.findingsService.update(
-    investigationId,
-    findingId,
-    dto,
-  );
-}
+    @Param('investigationId') investigationId: string,
+    @Param('id') findingId: string,
+    @Body() dto: UpdateFindingDto,
+  ) {
+    return this.findingsService.update(investigationId, findingId, dto);
+  }
 
+  @MinRole(UserRole.ADMIN)
   @Delete(':id')
   remove(
-  @Param('investigationId') investigationId: string,
-  @Param('id') findingId: string,
-) {
-  return this.findingsService.remove(
-    investigationId,
-    findingId,
-  );
-}
+    @Param('investigationId') investigationId: string,
+    @Param('id') findingId: string,
+  ) {
+    return this.findingsService.remove(investigationId, findingId);
+  }
 }

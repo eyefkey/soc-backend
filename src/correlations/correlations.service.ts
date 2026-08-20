@@ -1,98 +1,133 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
-import { RiskScoreService } from './risk-score.service';
+import { InvestigationContextService } from './investigation-context.service';
+import { RiskScore, RiskScoreService } from './risk-score.service';
+import { InvestigationContext } from './interfaces/investigation-context.interface';
+
+export interface Correlation {
+  type:
+    | 'ALERT_ASSET'
+    | 'ALERT_EVIDENCE'
+    | 'EVIDENCE_ASSET'
+    | 'INVESTIGATION_FINDING';
+  sourceId: string;
+  targetId: string;
+  confidence: 'LOW' | 'MEDIUM' | 'HIGH';
+  reason: string;
+}
+
+export interface CorrelationResult {
+  investigationId: string;
+  incidentId: string;
+  risk: RiskScore;
+  correlations: Correlation[];
+}
 
 @Injectable()
 export class CorrelationsService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly riskScoreService: RiskScoreService,
-
+    private readonly context: InvestigationContextService,
+    private readonly riskScore: RiskScoreService,
   ) {}
 
   async getInvestigationCorrelations(
     investigationId: string,
-  ) {
-    const investigation =
-      await this.prisma.investigation.findUnique({
-        where: {
-          id: investigationId,
-        },
-        include: {
-          incident: {
-            include: {
-              alerts: true,
+  ): Promise<CorrelationResult> {
+    const ctx = await this.context.load(investigationId);
 
-              evidence: true,
-
-              assets: {
-                include: {
-                  asset: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-    if (!investigation) {
-      throw new NotFoundException(
-        'Investigation not found',
-      );
-    }
-
-    const correlations: Array<{
-      type: string;
-      alertId: string;
-      assetId?: string;
-      evidenceId?: string;
-      reason: string;
-      confidence: string;
-    }> = [];
-
-    for (const alert of investigation.incident.alerts) {
-  for (const evidence of investigation.incident.evidence) {
-    const sourceMatches =
-      alert.sourceIp &&
-      evidence.type === 'IP_ADDRESS' &&
-      alert.sourceIp === evidence.value;
-
-    const targetMatches =
-      alert.targetIp &&
-      evidence.type === 'IP_ADDRESS' &&
-      alert.targetIp === evidence.value;
-
-    if (sourceMatches || targetMatches) {
-      const matchedField = sourceMatches
-        ? 'source IP'
-        : 'target IP';
-
-       correlations.push({
-        type: 'ALERT_EVIDENCE',
-        alertId: alert.id,
-        evidenceId: evidence.id,
-        reason:
-          `Alert ${matchedField} matches evidence value`,
-        confidence: 'HIGH',
-      });
-    }
+    return {
+      investigationId: ctx.investigationId,
+      incidentId: ctx.incidentId,
+      risk: this.riskScore.calculate(ctx),
+      correlations: this.correlate(ctx),
+    };
   }
-}
 
-  const risk = this.riskScoreService.calculate(
-  investigation.incident.severity,
-  correlations.length,
-);
+  /*
+   * Pure rule evaluation over an already-loaded context, so the rules can be
+   * unit tested without a database.
+   */
+  correlate(ctx: InvestigationContext): Correlation[] {
+    const correlations: Correlation[] = [];
 
-return {
-  investigationId,
-  incidentId: investigation.incidentId,
-  risk,
-  correlations,
-};
+    /*
+     * RULE 1 — Alert to Asset: alert target IP matches asset IP.
+     */
+    for (const alert of ctx.alerts) {
+      if (!alert.targetIp) {
+        continue;
+      }
+
+      for (const asset of ctx.assets) {
+        if (asset.ipAddress && asset.ipAddress === alert.targetIp) {
+          correlations.push({
+            type: 'ALERT_ASSET',
+            sourceId: alert.id,
+            targetId: asset.id,
+            confidence: 'HIGH',
+            reason: 'Alert target IP matches asset IP',
+          });
+        }
+      }
+    }
+
+    /*
+     * RULE 2 — Alert to Evidence: an alert IP appears in the evidence value.
+     */
+    for (const alert of ctx.alerts) {
+      const alertIps = [alert.sourceIp, alert.targetIp].filter(
+        (ip): ip is string => Boolean(ip),
+      );
+
+      for (const item of ctx.evidence) {
+        const matched = alertIps.find((ip) => item.value.includes(ip));
+
+        if (matched) {
+          correlations.push({
+            type: 'ALERT_EVIDENCE',
+            sourceId: alert.id,
+            targetId: item.id,
+            confidence: matched === item.value ? 'HIGH' : 'MEDIUM',
+            reason:
+              matched === item.value
+                ? 'Alert IP matches evidence value'
+                : 'Alert IP appears within evidence value',
+          });
+        }
+      }
+    }
+
+    /*
+     * RULE 3 — Evidence to Asset: evidence contains the asset IP.
+     */
+    for (const item of ctx.evidence) {
+      for (const asset of ctx.assets) {
+        if (asset.ipAddress && item.value.includes(asset.ipAddress)) {
+          correlations.push({
+            type: 'EVIDENCE_ASSET',
+            sourceId: item.id,
+            targetId: asset.id,
+            confidence: 'HIGH',
+            reason: 'Evidence contains asset IP',
+          });
+        }
+      }
+    }
+
+    /*
+     * RULE 4 — Finding to Investigation: findings belong to the
+     * investigation directly, carrying their own stated confidence.
+     */
+    for (const finding of ctx.findings) {
+      correlations.push({
+        type: 'INVESTIGATION_FINDING',
+        sourceId: ctx.investigationId,
+        targetId: finding.id,
+        confidence: finding.confidence,
+        reason: 'Finding belongs to investigation',
+      });
+    }
+
+    return correlations;
   }
 }

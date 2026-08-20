@@ -1,44 +1,34 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  InvestigationEvent,
-  InvestigationEventType,
-} from './interfaces/investigation-event.interface';
+import { InvestigationEvent } from './interfaces/investigation-event.interface';
 
 @Injectable()
 export class InvestigationEventsService {
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async getEvents(
-    investigationId: string,
-  ): Promise<InvestigationEvent[]> {
-    const investigation =
-      await this.prisma.investigation.findUnique({
-        where: {
-          id: investigationId,
-        },
-        include: {
-          incident: {
-            include: {
-              alerts: true,
-              evidence: true,
-              assets: {
-                include: {
-                  asset: true,
-                },
+  async getEvents(investigationId: string): Promise<InvestigationEvent[]> {
+    const investigation = await this.prisma.investigation.findUnique({
+      where: {
+        id: investigationId,
+      },
+      include: {
+        incident: {
+          include: {
+            alerts: true,
+            evidence: true,
+            assets: {
+              include: {
+                asset: true,
               },
             },
           },
         },
-      });
+      },
+    });
 
     if (!investigation) {
-      throw new NotFoundException(
-        'Investigation not found',
-      );
+      throw new NotFoundException('Investigation not found');
     }
 
     const events: InvestigationEvent[] = [];
@@ -79,9 +69,7 @@ export class InvestigationEventsService {
         type: 'EVIDENCE',
         action: 'OBSERVED',
         sourceId: evidence.id,
-        description:
-          evidence.description ??
-          evidence.value,
+        description: evidence.description ?? evidence.value,
         metadata: {
           evidenceType: evidence.type,
           value: evidence.value,
@@ -108,11 +96,7 @@ export class InvestigationEventsService {
       });
     }
 
-    events.sort(
-      (a, b) =>
-        a.timestamp.getTime() -
-        b.timestamp.getTime(),
-    );
+    events.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     return events;
   }

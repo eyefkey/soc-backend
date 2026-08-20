@@ -1,9 +1,8 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
+import { AuditAction, AuditEntity } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { CreateFindingDto } from './dto/create-finding.dto';
 import { UpdateFindingDto } from './dto/update-finding.dto';
 
@@ -11,36 +10,49 @@ import { UpdateFindingDto } from './dto/update-finding.dto';
 export class FindingsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
   ) {}
 
-  async create(
-  investigationId: string,
-  dto: CreateFindingDto,
-) {
-  const investigation =
-    await this.prisma.investigation.findUnique({
+  async create(investigationId: string, dto: CreateFindingDto) {
+    const investigation = await this.prisma.investigation.findUnique({
       where: {
         id: investigationId,
       },
     });
 
-  if (!investigation) {
-    throw new NotFoundException(
-      'Investigation not found',
-    );
-  }
+    if (!investigation) {
+      throw new NotFoundException('Investigation not found');
+    }
 
-  return this.prisma.finding.create({
-    data: {
-      investigationId,
-      title: dto.title,
-      description: dto.description,
-      confidence: dto.confidence,
-      impact: dto.impact,
-      recommendation: dto.recommendation,
-    },
-  });
-}
+    return this.prisma.$transaction(async (tx) => {
+      const finding = await tx.finding.create({
+        data: {
+          investigationId,
+          title: dto.title,
+          description: dto.description,
+          confidence: dto.confidence,
+          impact: dto.impact,
+          recommendation: dto.recommendation,
+        },
+      });
+
+      await this.audit.create(
+        {
+          action: AuditAction.CREATED,
+          entity: AuditEntity.FINDING,
+          entityId: finding.id,
+          description: `Finding recorded: ${finding.title}`,
+          metadata: {
+            confidence: finding.confidence,
+            investigationId,
+          },
+        },
+        tx,
+      );
+
+      return finding;
+    });
+  }
 
   async findAll() {
     return this.prisma.finding.findMany({
@@ -50,9 +62,7 @@ export class FindingsService {
     });
   }
 
-  async findByInvestigation(
-    investigationId: string,
-  ) {
+  async findByInvestigation(investigationId: string) {
     return this.prisma.finding.findMany({
       where: {
         investigationId,
@@ -64,71 +74,94 @@ export class FindingsService {
   }
 
   async findOne(id: string) {
-    const finding =
-      await this.prisma.finding.findUnique({
-        where: {
-          id,
-        },
-      });
+    const finding = await this.prisma.finding.findUnique({
+      where: {
+        id,
+      },
+    });
 
     if (!finding) {
-      throw new NotFoundException(
-        'Finding not found',
-      );
+      throw new NotFoundException('Finding not found');
     }
 
     return finding;
   }
 
   async update(
-  investigationId: string,
-  findingId: string,
-  dto: UpdateFindingDto,
-) {
-  const finding =
-    await this.prisma.finding.findFirst({
+    investigationId: string,
+    findingId: string,
+    dto: UpdateFindingDto,
+  ) {
+    const finding = await this.prisma.finding.findFirst({
       where: {
         id: findingId,
         investigationId,
       },
     });
 
-  if (!finding) {
-    throw new NotFoundException(
-      'Finding not found',
-    );
+    if (!finding) {
+      throw new NotFoundException('Finding not found');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.finding.update({
+        where: {
+          id: findingId,
+        },
+        data: dto,
+      });
+
+      await this.audit.create(
+        {
+          action: AuditAction.UPDATED,
+          entity: AuditEntity.FINDING,
+          entityId: updated.id,
+          description: `Finding updated: ${updated.title}`,
+          metadata: {
+            fields: Object.keys(dto),
+            investigationId,
+          },
+        },
+        tx,
+      );
+
+      return updated;
+    });
   }
 
-  return this.prisma.finding.update({
-    where: {
-      id: findingId,
-    },
-    data: dto,
-  });
-}
-
-async remove(
-  investigationId: string,
-  findingId: string,
-) {
-  const finding =
-    await this.prisma.finding.findFirst({
+  async remove(investigationId: string, findingId: string) {
+    const finding = await this.prisma.finding.findFirst({
       where: {
         id: findingId,
         investigationId,
       },
     });
 
-  if (!finding) {
-    throw new NotFoundException(
-      'Finding not found',
-    );
-  }
+    if (!finding) {
+      throw new NotFoundException('Finding not found');
+    }
 
-  return this.prisma.finding.delete({
-    where: {
-      id: findingId,
-    },
-  });
+    return this.prisma.$transaction(async (tx) => {
+      const removed = await tx.finding.delete({
+        where: {
+          id: findingId,
+        },
+      });
+
+      await this.audit.create(
+        {
+          action: AuditAction.DELETED,
+          entity: AuditEntity.FINDING,
+          entityId: removed.id,
+          description: `Finding deleted: ${removed.title}`,
+          metadata: {
+            investigationId,
+          },
+        },
+        tx,
+      );
+
+      return removed;
+    });
   }
 }

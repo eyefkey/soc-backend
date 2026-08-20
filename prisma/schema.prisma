@@ -73,6 +73,8 @@ enum AuditEntity {
   ALERT
   ASSET
   EVIDENCE
+  INVESTIGATION
+  FINDING
   USER
 }
 
@@ -220,4 +222,29 @@ model Investigation {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   findings  Finding[]
+}
+
+enum UserRole {
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+model User {
+  id String @id @default(cuid())
+
+  email    String @unique
+  username String @unique
+
+  passwordHash String
+
+  role     UserRole @default(VIEWER)
+  isActive Boolean  @default(true)
+
+  lastLoginAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
 }

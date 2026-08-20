@@ -1,11 +1,5 @@
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-
-export enum IncidentSeverity {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-  CRITICAL = 'CRITICAL',
-}
+import { Severity } from '../../../generated/prisma/enums';
 
 export class CreateIncidentDto {
   @IsString()
@@ -15,6 +9,6 @@ export class CreateIncidentDto {
   @IsString()
   description?: string;
 
-  @IsEnum(IncidentSeverity)
-  severity: IncidentSeverity;
+  @IsEnum(Severity)
+  severity: Severity;
 }
