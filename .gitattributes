@@ -1,0 +1,6 @@
+# Normalise line endings: the repository stores LF, which matches the
+# Prettier endOfLine setting so `prettier --check` passes on every platform.
+* text=auto eol=lf
+
+# Generated Prisma client and lockfiles are not ours to normalise.
+package-lock.json -diff

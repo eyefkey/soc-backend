@@ -1,11 +1,7 @@
 import { Severity } from '../../../generated/prisma/enums';
 
 export type InvestigationEventType =
-  | 'INCIDENT'
-  | 'ALERT'
-  | 'EVIDENCE'
-  | 'ASSET'
-  | 'AUDIT';
+  'INCIDENT' | 'ALERT' | 'EVIDENCE' | 'ASSET' | 'AUDIT';
 
 export interface InvestigationEvent {
   id: string;

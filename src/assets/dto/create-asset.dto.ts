@@ -1,14 +1,6 @@
-import {
-  IsEnum,
-  IsIP,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsEnum, IsIP, IsOptional, IsString } from 'class-validator';
 
-import {
-  AssetStatus,
-  AssetType,
-} from '../../../generated/prisma/enums';
+import { AssetStatus, AssetType } from '../../../generated/prisma/enums';
 
 export class CreateAssetDto {
   @IsString()

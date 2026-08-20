@@ -1,9 +1,6 @@
 import { IsEnum, IsIP, IsOptional, IsString } from 'class-validator';
 
-import {
-  AuditAction,
-  AuditEntity,
-} from '../../../generated/prisma/enums';
+import { AuditAction, AuditEntity } from '../../../generated/prisma/enums';
 
 export class CreateAuditLogDto {
   @IsEnum(AuditAction)

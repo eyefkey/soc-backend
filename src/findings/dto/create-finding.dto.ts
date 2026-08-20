@@ -1,12 +1,6 @@
-import {
-  IsEnum,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 
-import {
-  FindingConfidence,
-} from '../../../generated/prisma/enums';
+import { FindingConfidence } from '../../../generated/prisma/enums';
 
 export class CreateFindingDto {
   @IsString()
