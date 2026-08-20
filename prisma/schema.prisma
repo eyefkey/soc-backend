@@ -20,6 +20,25 @@ enum Severity {
   CRITICAL
 }
 
+/// MITRE ATT&CK enterprise tactics, used to label how an alert or incident
+/// fits an intrusion so the console can group and chart by stage.
+enum MitreTactic {
+  RECONNAISSANCE
+  RESOURCE_DEVELOPMENT
+  INITIAL_ACCESS
+  EXECUTION
+  PERSISTENCE
+  PRIVILEGE_ESCALATION
+  DEFENSE_EVASION
+  CREDENTIAL_ACCESS
+  DISCOVERY
+  LATERAL_MOVEMENT
+  COLLECTION
+  COMMAND_AND_CONTROL
+  EXFILTRATION
+  IMPACT
+}
+
 enum IncidentStatus {
   OPEN
   INVESTIGATING
@@ -42,6 +61,7 @@ enum AssetStatus {
   ACTIVE
   INACTIVE
   COMPROMISED
+  QUARANTINED
   DECOMMISSIONED
 }
 
@@ -113,11 +133,19 @@ model Finding {
 }
 
 model Incident {
-  id          String         @id @default(cuid())
+  id String @id @default(cuid())
+
+  /// Sequential, human-readable reference. Analysts say "INC-4821" out
+  /// loud during a handover; nobody reads a cuid to a colleague.
+  number Int @unique @default(autoincrement())
+
   title       String
   description String?
   severity    Severity
   status      IncidentStatus @default(OPEN)
+
+  /// Dominant ATT&CK tactic for the incident as a whole.
+  tactic MitreTactic?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -130,6 +158,7 @@ model Incident {
   @@index([status])
   @@index([severity])
   @@index([createdAt])
+  @@index([tactic])
 }
 
 model Alert {
@@ -142,6 +171,13 @@ model Alert {
   sourceIp String?
   targetIp String?
 
+  /// Which ATT&CK stage the detection maps to.
+  tactic MitreTactic?
+
+  /// Account the activity was observed under, where the source reports
+  /// one — a service account name is often the first real lead.
+  affectedUser String?
+
   createdAt DateTime @default(now())
 
   incidentId String?
@@ -150,6 +186,7 @@ model Alert {
   @@index([incidentId])
   @@index([severity])
   @@index([createdAt])
+  @@index([tactic])
 }
 
 model Evidence {

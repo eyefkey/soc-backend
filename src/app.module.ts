@@ -19,6 +19,7 @@ import { AuditModule } from './audit/audit.module';
 import { InvestigationsModule } from './investigations/investigations.module';
 import { FindingsModule } from './findings/findings.module';
 import { CorrelationsModule } from './correlations/correlations.module';
+import { StatsModule } from './stats/stats.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { CorrelationsModule } from './correlations/correlations.module';
     InvestigationsModule,
     FindingsModule,
     CorrelationsModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -40,6 +40,8 @@ export class AlertsService {
           source: dto.source,
           sourceIp: dto.sourceIp,
           targetIp: dto.targetIp,
+          tactic: dto.tactic,
+          affectedUser: dto.affectedUser,
           incidentId: dto.incidentId,
         },
       });
@@ -66,12 +68,13 @@ export class AlertsService {
   }
 
   async findAll(query: QueryAlertsDto) {
-    const { skip = 0, take = 25, severity, incidentId, source } = query;
+    const { skip = 0, take = 25, severity, incidentId, source, tactic } = query;
 
     const where = {
       ...(severity ? { severity } : {}),
       ...(incidentId ? { incidentId } : {}),
       ...(source ? { source } : {}),
+      ...(tactic ? { tactic } : {}),
     };
 
     const [data, total] = await Promise.all([

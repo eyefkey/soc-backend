@@ -21,6 +21,7 @@ export class IncidentsService {
           title: dto.title,
           description: dto.description,
           severity: dto.severity,
+          tactic: dto.tactic,
         },
       });
 
@@ -43,11 +44,12 @@ export class IncidentsService {
   }
 
   async findAll(query: QueryIncidentsDto) {
-    const { skip = 0, take = 25, status, severity } = query;
+    const { skip = 0, take = 25, status, severity, tactic } = query;
 
     const where = {
       ...(status ? { status } : {}),
       ...(severity ? { severity } : {}),
+      ...(tactic ? { tactic } : {}),
     };
 
     const [data, total] = await Promise.all([
@@ -57,6 +59,24 @@ export class IncidentsService {
         take,
         orderBy: {
           createdAt: 'desc',
+        },
+        /*
+         * The queue row shows the affected host, so the link is loaded
+         * with the list rather than fetched per row by the client.
+         */
+        include: {
+          assets: {
+            include: {
+              asset: true,
+            },
+          },
+          investigation: {
+            select: {
+              id: true,
+              status: true,
+              assignedTo: true,
+            },
+          },
         },
       }),
       this.prisma.incident.count({ where }),

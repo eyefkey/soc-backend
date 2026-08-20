@@ -1,5 +1,5 @@
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { Severity } from '../../../generated/prisma/enums';
+import { MitreTactic, Severity } from '../../../generated/prisma/enums';
 
 export class CreateIncidentDto {
   @IsString()
@@ -11,4 +11,8 @@ export class CreateIncidentDto {
 
   @IsEnum(Severity)
   severity: Severity;
+
+  @IsOptional()
+  @IsEnum(MitreTactic)
+  tactic?: MitreTactic;
 }

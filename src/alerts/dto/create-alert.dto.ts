@@ -1,5 +1,5 @@
 import { IsEnum, IsIP, IsOptional, IsString } from 'class-validator';
-import { Severity } from '../../../generated/prisma/enums';
+import { MitreTactic, Severity } from '../../../generated/prisma/enums';
 
 export class CreateAlertDto {
   @IsString()
@@ -23,6 +23,14 @@ export class CreateAlertDto {
   @IsOptional()
   @IsIP()
   targetIp?: string;
+
+  @IsOptional()
+  @IsEnum(MitreTactic)
+  tactic?: MitreTactic;
+
+  @IsOptional()
+  @IsString()
+  affectedUser?: string;
 
   @IsOptional()
   @IsString()

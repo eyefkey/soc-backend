@@ -5,7 +5,7 @@ import {
   IsString,
   ValidateIf,
 } from 'class-validator';
-import { Severity } from '../../../generated/prisma/enums';
+import { MitreTactic, Severity } from '../../../generated/prisma/enums';
 
 export class UpdateAlertDto {
   @IsOptional()
@@ -31,6 +31,14 @@ export class UpdateAlertDto {
   @IsOptional()
   @IsIP()
   targetIp?: string;
+
+  @IsOptional()
+  @IsEnum(MitreTactic)
+  tactic?: MitreTactic;
+
+  @IsOptional()
+  @IsString()
+  affectedUser?: string;
 
   /*
    * Explicit null detaches the alert from its incident; omitting the field

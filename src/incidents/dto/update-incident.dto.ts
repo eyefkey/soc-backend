@@ -1,5 +1,9 @@
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { IncidentStatus, Severity } from '../../../generated/prisma/enums';
+import {
+  IncidentStatus,
+  MitreTactic,
+  Severity,
+} from '../../../generated/prisma/enums';
 
 export class UpdateIncidentDto {
   @IsOptional()
@@ -17,4 +21,8 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsEnum(IncidentStatus)
   status?: IncidentStatus;
+
+  @IsOptional()
+  @IsEnum(MitreTactic)
+  tactic?: MitreTactic;
 }
