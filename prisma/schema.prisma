@@ -213,6 +213,21 @@ model Asset {
   ipAddress   String?
   description String?
 
+  /*
+   * Set to opt an asset into the uptime checker: it polls every asset
+   * with a non-null monitoredUrl instead of reading a separate, easy-to-
+   * forget target list out of the checker's own config.
+   */
+  monitoredUrl String?
+
+  /*
+   * Per-asset overrides for the uptime checker's default behaviour — a
+   * staging site and a customer-facing API shouldn't necessarily page the
+   * same way. Null means "use the checker's own default".
+   */
+  checkThreshold Int?
+  checkSeverity  Severity?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

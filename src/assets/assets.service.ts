@@ -25,6 +25,9 @@ export class AssetsService {
           hostname: dto.hostname,
           ipAddress: dto.ipAddress,
           description: dto.description,
+          monitoredUrl: dto.monitoredUrl,
+          checkThreshold: dto.checkThreshold,
+          checkSeverity: dto.checkSeverity,
         },
       });
 

@@ -1,5 +1,17 @@
-import { IsEnum, IsIP, IsOptional, IsString } from 'class-validator';
-import { AssetStatus, AssetType } from '../../../generated/prisma/enums';
+import {
+  IsEnum,
+  IsIP,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Min,
+} from 'class-validator';
+import {
+  AssetStatus,
+  AssetType,
+  Severity,
+} from '../../../generated/prisma/enums';
 
 export class UpdateAssetDto {
   @IsOptional()
@@ -25,4 +37,17 @@ export class UpdateAssetDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  monitoredUrl?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  checkThreshold?: number;
+
+  @IsOptional()
+  @IsEnum(Severity)
+  checkSeverity?: Severity;
 }
